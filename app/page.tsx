@@ -1,65 +1,173 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState } from "react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
+
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+export default function AddBookForm() {
+  const [formData, setFormData] = useState({
+    title: "",
+    author: "",
+    category: "",
+    condition: "",
+  });
+
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setSuccess(false);
+    setError(null);
+
+    const { error } = await supabase.from("books").insert({
+      title: formData.title,
+      author: formData.author || null,
+      category: formData.category || null,
+      condition: formData.condition || null,
+    });
+
+    setSaving(false);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setFormData({
+      title: "",
+      author: "",
+      category: "",
+      condition: "",
+    });
+
+    setSuccess(true);
+    setTimeout(() => setSuccess(false), 2500);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="flex items-center justify-center min-h-screen bg-slate-50 p-4">
+      <Card className="w-full max-w-md shadow-sm">
+        <CardHeader className="flex flex-row items-start justify-between">
+          <div>
+            <CardTitle className="text-xl">Add New Book</CardTitle>
+            <CardDescription>
+              Add a book to your personal library.
+            </CardDescription>
+          </div>
+
+          {/* 👉 View Books button */}
+          <Button asChild variant="outline" size="sm">
+            <Link href="/books">View Books</Link>
+          </Button>
+        </CardHeader>
+
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input
+                required
+                value={formData.title}
+                onChange={(e) =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
+                placeholder="Riyad as-Saliheen"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Author</Label>
+              <Input
+                value={formData.author}
+                onChange={(e) =>
+                  setFormData({ ...formData, author: e.target.value })
+                }
+                placeholder="Imam an-Nawawi"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(v) =>
+                  setFormData({ ...formData, category: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="history">History</SelectItem>
+                  <SelectItem value="fiqh">Fiqh</SelectItem>
+                  <SelectItem value="hadith">Hadith</SelectItem>
+                  <SelectItem value="literature">Literature</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Condition</Label>
+              <Select
+                value={formData.condition}
+                onValueChange={(v) =>
+                  setFormData({ ...formData, condition: v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select condition" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="good">Good</SelectItem>
+                  <SelectItem value="worn">Worn</SelectItem>
+                  <SelectItem value="damaged">Damaged</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+
+          <CardFooter className="flex flex-col gap-2">
+            <Button type="submit" className="w-full" disabled={saving}>
+              {saving ? "Saving..." : "Add Book"}
+            </Button>
+
+            {success && (
+              <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-1 text-center">
+                Book added successfully ✓
+              </div>
+            )}
+
+            {error && (
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-1 text-center">
+                {error}
+              </div>
+            )}
+          </CardFooter>
+        </form>
+      </Card>
     </div>
   );
 }
