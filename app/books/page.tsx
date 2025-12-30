@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
+import { getMyRole } from "@/lib/auth"
 
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -23,6 +25,11 @@ type Book = {
 }
 
 export default function BooksPage() {
+  const router = useRouter()
+
+  const [role, setRole] = useState<"admin" | "viewer" | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+
   const [books, setBooks] = useState<Book[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -32,6 +39,25 @@ export default function BooksPage() {
 
   const [openId, setOpenId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+
+  // auth guard
+  useEffect(() => {
+    ;(async () => {
+      const { data } = await supabase.auth.getSession()
+      if (!data.session) {
+        router.replace("/login")
+        return
+      }
+      const r = await getMyRole()
+      setRole(r ?? "viewer")
+      setAuthLoading(false)
+    })()
+  }, [router])
+
+  const logout = async () => {
+    await supabase.auth.signOut()
+    router.replace("/login")
+  }
 
   const loadBooks = async () => {
     setLoading(true)
@@ -51,8 +77,9 @@ export default function BooksPage() {
   }
 
   useEffect(() => {
-    loadBooks()
-  }, [])
+    if (!authLoading) loadBooks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading])
 
   const categories = useMemo(() => {
     const set = new Set<string>()
@@ -86,6 +113,7 @@ export default function BooksPage() {
   }
 
   const deleteBook = async (id: number) => {
+    if (role !== "admin") return
     const ok = confirm("Delete this book?")
     if (!ok) return
 
@@ -101,7 +129,6 @@ export default function BooksPage() {
       return
     }
 
-    // update UI immediately
     setBooks((prev) => prev.filter((b) => b.id !== id))
     if (openId === id) setOpenId(null)
   }
@@ -182,14 +209,24 @@ export default function BooksPage() {
     doc.save("al-maktaba-books.pdf")
   }
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center p-6">
+        <div className="text-sm text-stone-500">Loading…</div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-start justify-center min-h-screen bg-slate-50 p-4">
       <div className="w-full max-w-3xl space-y-4">
+        {/* Top bar */}
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Books</h1>
             <p className="text-sm text-muted-foreground">
-              {loading ? "Loading..." : `${filtered.length} shown • ${books.length} total`}
+              {loading ? "Loading..." : `${filtered.length} shown • ${books.length} total`} • Role:{" "}
+              <span className="font-semibold">{role ?? "viewer"}</span>
             </p>
           </div>
 
@@ -209,9 +246,14 @@ export default function BooksPage() {
             <Button asChild>
               <Link href="/">Add Book</Link>
             </Button>
+
+            <Button variant="outline" onClick={logout}>
+              Logout
+            </Button>
           </div>
         </div>
 
+        {/* Filters */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">Filter</CardTitle>
@@ -261,10 +303,11 @@ export default function BooksPage() {
           </CardContent>
         </Card>
 
+        {/* List */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">Catalog</CardTitle>
-            <CardDescription>Click a book to view details.</CardDescription>
+            <CardDescription>Click a book title to view details.</CardDescription>
           </CardHeader>
 
           <CardContent>
@@ -313,15 +356,17 @@ export default function BooksPage() {
                               <span>{formatDate(b.created_at)}</span>
                             </div>
 
-                            <div className="pt-2">
-                              <Button
-                                variant="destructive"
-                                onClick={() => deleteBook(b.id)}
-                                disabled={isDeleting}
-                              >
-                                {isDeleting ? "Deleting..." : "Delete Book"}
-                              </Button>
-                            </div>
+                            {role === "admin" && (
+                              <div className="pt-2">
+                                <Button
+                                  variant="destructive"
+                                  onClick={() => deleteBook(b.id)}
+                                  disabled={isDeleting}
+                                >
+                                  {isDeleting ? "Deleting..." : "Delete Book"}
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
