@@ -30,8 +30,8 @@ export default function BooksPage() {
   const [category, setCategory] = useState<string>("all")
   const [condition, setCondition] = useState<string>("all")
 
-  // which row is expanded
   const [openId, setOpenId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   const loadBooks = async () => {
     setLoading(true)
@@ -85,6 +85,27 @@ export default function BooksPage() {
     }
   }
 
+  const deleteBook = async (id: number) => {
+    const ok = confirm("Delete this book?")
+    if (!ok) return
+
+    setDeletingId(id)
+
+    const { error } = await supabase.from("books").delete().eq("id", id)
+
+    setDeletingId(null)
+
+    if (error) {
+      console.error(error)
+      alert(error.message)
+      return
+    }
+
+    // update UI immediately
+    setBooks((prev) => prev.filter((b) => b.id !== id))
+    if (openId === id) setOpenId(null)
+  }
+
   const exportPdf = () => {
     const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" })
 
@@ -96,7 +117,6 @@ export default function BooksPage() {
     doc.setFontSize(10)
     doc.text(`Printed: ${printedAt}`, 14, 22)
 
-    // group by category (using CURRENT FILTERED results)
     const groups = new Map<string, Book[]>()
     for (const b of filtered) {
       const key = (b.category || "Uncategorized").trim() || "Uncategorized"
@@ -113,7 +133,6 @@ export default function BooksPage() {
     for (const groupName of sortedGroupNames) {
       const groupBooks = groups.get(groupName) ?? []
 
-      // section title
       doc.setFontSize(12)
       doc.text(groupName, 14, y)
       y += 4
@@ -138,18 +157,15 @@ export default function BooksPage() {
         margin: { left: 14, right: 14 },
       })
 
-      // move y after the table
       const lastY = (doc as any).lastAutoTable?.finalY
       y = (typeof lastY === "number" ? lastY : y) + 10
 
-      // if near bottom, add new page
       if (y > 270) {
         doc.addPage()
         y = 16
       }
     }
 
-    // footer page numbers
     const totalPages = doc.getNumberOfPages()
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p)
@@ -169,7 +185,6 @@ export default function BooksPage() {
   return (
     <div className="flex items-start justify-center min-h-screen bg-slate-50 p-4">
       <div className="w-full max-w-3xl space-y-4">
-        {/* Top bar */}
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Books</h1>
@@ -197,7 +212,6 @@ export default function BooksPage() {
           </div>
         </div>
 
-        {/* Filters */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">Filter</CardTitle>
@@ -247,7 +261,6 @@ export default function BooksPage() {
           </CardContent>
         </Card>
 
-        {/* List */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg">Catalog</CardTitle>
@@ -263,9 +276,10 @@ export default function BooksPage() {
               <div className="space-y-2">
                 {filtered.map((b) => {
                   const open = openId === b.id
+                  const isDeleting = deletingId === b.id
+
                   return (
                     <div key={b.id} className="rounded-lg border bg-white overflow-hidden">
-                      {/* clickable header row (title only) */}
                       <button
                         type="button"
                         onClick={() => toggle(b.id)}
@@ -279,9 +293,8 @@ export default function BooksPage() {
                         </div>
                       </button>
 
-                      {/* dropdown details */}
                       {open && (
-                        <div className="px-4 pb-4 pt-1 border-t bg-slate-50/40">
+                        <div className="px-4 pb-4 pt-2 border-t bg-slate-50/40">
                           <div className="grid gap-2 text-sm">
                             <div>
                               <span className="text-muted-foreground">Author: </span>
@@ -298,6 +311,16 @@ export default function BooksPage() {
                             <div>
                               <span className="text-muted-foreground">Added: </span>
                               <span>{formatDate(b.created_at)}</span>
+                            </div>
+
+                            <div className="pt-2">
+                              <Button
+                                variant="destructive"
+                                onClick={() => deleteBook(b.id)}
+                                disabled={isDeleting}
+                              >
+                                {isDeleting ? "Deleting..." : "Delete Book"}
+                              </Button>
                             </div>
                           </div>
                         </div>
