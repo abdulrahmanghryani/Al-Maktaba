@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-import { CheckCircle2, BookOpen, LogOut } from "lucide-react"
+import { CheckCircle2, BookOpen } from "lucide-react"
 
 export default function AddBookPage() {
   const router = useRouter()
@@ -37,18 +37,31 @@ export default function AddBookPage() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // ✅ Auth guard that never hangs (always stops loading)
   useEffect(() => {
-    ;(async () => {
-      const { data } = await supabase.auth.getSession()
-      if (!data.session) {
-        router.replace("/login")
-        return
-      }
+    let mounted = true
 
-      const r = await getMyRole()
-      setRole(r)
-      setAuthLoading(false)
+    ;(async () => {
+      try {
+        const { data } = await supabase.auth.getSession()
+        if (!data.session) {
+          router.replace("/login")
+          return
+        }
+
+        const r = await getMyRole()
+        if (!mounted) return
+
+        // default to viewer if anything is weird
+        setRole(r ?? "viewer")
+      } finally {
+        if (mounted) setAuthLoading(false)
+      }
     })()
+
+    return () => {
+      mounted = false
+    }
   }, [router])
 
   const logout = async () => {
@@ -58,6 +71,7 @@ export default function AddBookPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
     if (role !== "admin") return
 
     setIsSubmitting(true)
@@ -78,7 +92,13 @@ export default function AddBookPage() {
       return
     }
 
-    setFormData({ title: "", author: "", category: "", condition: "" })
+    setFormData({
+      title: "",
+      author: "",
+      category: "",
+      condition: "",
+    })
+
     setShowSuccess(true)
     setTimeout(() => setShowSuccess(false), 2500)
   }
@@ -95,7 +115,8 @@ export default function AddBookPage() {
     <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center p-6 font-sans">
       <Card className="max-w-lg w-full bg-white border-stone-200 shadow-sm rounded-none border-t-4 border-t-stone-400">
         <CardHeader className="pb-4">
-          <div className="flex justify-between items-center gap-2">
+          {/* ✅ Mobile-friendly top row */}
+          <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <CardTitle className="text-xs uppercase tracking-[0.2em] text-stone-500 font-semibold">
                 New Accession Entry
@@ -103,21 +124,32 @@ export default function AddBookPage() {
               <BookOpen className="h-4 w-4 text-stone-300" />
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button asChild variant="outline" size="sm" className="rounded-none">
+            <div className="flex items-center justify-end gap-2 flex-wrap">
+              <Button asChild variant="outline" size="sm" className="rounded-none bg-white">
                 <Link href="/books">View Books</Link>
               </Button>
 
-              <Button variant="outline" size="sm" className="rounded-none" onClick={logout}>
-                <LogOut className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none bg-white"
+                onClick={logout}
+              >
+                Logout
               </Button>
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-serif italic text-stone-800">Library Registration</h1>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h1 className="text-2xl font-serif italic text-stone-800">
+              Library Registration
+            </h1>
+
             <div className="text-[10px] uppercase tracking-wider text-stone-400">
-              Role: <span className="text-stone-700 font-semibold">{role ?? "viewer"}</span>
+              Role:{" "}
+              <span className="text-stone-700 font-semibold">
+                {role ?? "viewer"}
+              </span>
             </div>
           </div>
         </CardHeader>
